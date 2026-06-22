@@ -18,7 +18,7 @@ rank-bm25==0.2.2    #keyword search classico
 #ingestion docs
 docling[vlm]==2.12.0   #parsing document avanzato, preserva anche struttura complessa, ottimo x contratti legali/bilanci docs/ect, RAG pro. e.g.PDF → testo strutturato
 unstructured[pdf,docx]==0.16.11  #INFO NON HTML?? general document parsing .pdf/html/ect, usato come fallback
-pypdf==5.1.0   #estrazione base testo pdf, veloce ma limitato
+pypdf==5.1.0     #estrazione base testo pdf, veloce ma limitato
 python-docx==1.1.2  #estrazione testo da .docx
 openpyxl==3.1.5  #estrazione testo da file .excel
 markitdown>=0.0.1  #converte docs->markdown pulito strutturato
@@ -96,4 +96,5 @@ python-slugify==8.0.4  #trasforma stringhe in slug URL-safe
 #openai==1.55.3
 #google-generativeai==0.8.3      # per gemini
 
+#asyncpg    #driver PostgreSQL async e velocissimo
 
