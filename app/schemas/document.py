@@ -19,8 +19,8 @@ class CollectionSchema(BaseModel):
     qdrant_name: str
     is_active: bool
     created_at: datetime
-    class Config:
-        from_attributes = True
+    class Config:  #è annidato, xk in Pydantic (v1 e compatibilità v2) serve a configurare questo singolo modello
+        from_attributes = True   #permette di creare il modello Pydantic partendo da un oggetto invece che da un dizionario. senza questo il XXXSchema.model_validate(user) darebbe error
 
 class DocumentSchema(BaseModel):
     id: str

@@ -25,7 +25,7 @@ class ConversationRepository(BaseRepository):
             """,
             {"id": conversation_id, "user_id": user_id, "mode": mode}
         )
-        row = await self.fetchone(  #fetchone() prende 1 row
+        row = await self.fetchone(     #fetchone() prende 1 row
             "SELECT * FROM conversations WHERE id = :id",
             {"id": conversation_id}
         )
@@ -103,7 +103,7 @@ class ConversationRepository(BaseRepository):
             """,
             {"uid": user_id, "offset": offset, "limit": page_size}  #'OFFSET :offset ROWS' number skipped rows, 'FETCH NEXT :limit ROWS ONLY' number of rows to return after offset
         )  #offset è quante rows iniziali 'salti'
-        return [dict(r._mapping) for r in rows], total or 0    #_mapping converte row sqlalchemy (e.g. rows = await db.execute(....)) in dict-like, dict() converte in dict normale
+        return [dict(r._mapping) for r in rows], total or 0    #_mapping converte row sqlalchemy (e.g. rows = await db.execute(....)) in dict-like, dict() converte in dict normale!
 
     async def save_summary(
         self,

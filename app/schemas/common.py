@@ -9,7 +9,7 @@ from __future__ import annotations   #abilita forward references e typing modern
 from datetime import datetime
 from typing import Any, Generic, TypeVar   #Generic per tipi generici, TypeVar per definire variabili di tipo generico
 from uuid import UUID
-from pydantic import BaseModel, Field   #BaseModel è la classe base per i modelli pyndatic, Field è usato per aggiungere validazione e metadata ai campi dei modelli
+from pydantic import BaseModel, Field    #BaseModel è la classe base per i modelli pyndatic, Field è usato per aggiungere validazione e metadata ai campi dei modelli
 
 T = TypeVar("T")   #crea un tipo generico
 
@@ -20,7 +20,7 @@ class PaginatedResponse( BaseModel, Generic[T] ):
     page: int
     page_size: int
     has_more: bool
-    @classmethod   #per creare mini-classe con gia init - 
+    @classmethod   #dice a python che questa funzione appartiene alla classe e NON all'istanza. per validator pydantic è lo standart
     def build(cls, items: list[T], total: int, page: int, page_size: int):
         return cls(
             items=items,

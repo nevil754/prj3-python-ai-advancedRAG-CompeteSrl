@@ -3,11 +3,11 @@
 # Ogni request imposta lo schema del tenant sulla connessione.
 from __future__ import annotations  #abilita forward references e typing moderno python, nelle new versions python non serve piu, ma io sto usando python 3.11.19, evita errori che non runni def test() -> MyClass: prima che MyClass sia definita
 from contextlib import asynccontextmanager, contextmanager  #x creare context manager sincroni e asincroni
-from functools import lru_cache  #x singleton cache
+from functools import lru_cache        #x singleton cache
 from typing import AsyncGenerator, Generator   #quando @asynccontextmanager su una funzione allora quella funzione ritorna un AsyncGenerator, mentre quando @contextmanager su una funzione quella funzione ritorna un Generator
 from loguru import logger
 from sqlalchemy import create_engine, event, text   #SQLAlchemy sync, sqlalchemy puo leggere sia sqlserver/postresql/mysql, text è per query raw
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  #versione async di sqlanchemy, async_sessionmaker è la versione async di sessionmaker, create_async_engine è la versione async di create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine    #versione async di sqlanchemy, async_sessionmaker è la versione async di sessionmaker, create_async_engine è la versione async di create_engine
 from sqlalchemy.orm import Session, sessionmaker  #Session è la classe base per le sessioni sincrone, sessionmaker è una factory per creare sessioni
 
 
@@ -159,7 +159,7 @@ class TenantDB:
                 logger.error(f"Errore provisioning tenant {slug}: {e}")
                 raise  #rilanci l'errore
 
-    @staticmethod
+    @staticmethod   #when a function logically belongs to a class but does not need access to self or cls
     async def ping() -> bool:
         """Verifica connessione SQL Server. Usato in /health"""
         try:
@@ -199,8 +199,8 @@ def get_sync_engine():
     settings = get_settings()
     engine = create_engine(    #crea connection sqlalchemy
         settings.sqlserver_url,
-        pool_size=5,  #5 connessioni aperte
-        max_overflow=10,  #fino a 10 connessioni extra temp
+        pool_size=5,               #5 connessioni aperte
+        max_overflow=10,           #fino a 10 connessioni extra temp
         pool_pre_ping=True,        #prima di usare una connessione esegue SELECT 1 per verificare che sia viva
         pool_recycle=3600,         #dopo 1ora fa chiudi->riapri, per evitare timeout
         echo=settings.app_debug,   #settings.app_debug è True allora vedi tutte le query sql generate da sqlalchemy nei log

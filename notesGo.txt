@@ -99,6 +99,7 @@ cosi anche per compliance legale (GDPR / GDPR-like), puoi rispondere alle domand
 -scalar():  e.g.se runni SELECT COUNT(*) FROM documents allora ti ritorna 1tabella(con dentro 1 sola colonna e 1 sola riga), pero se usi sqlalchemy allora ti return un obj result Result. scalar() prende il primo valore della prima riga, quindi fa  Result->(42,) quindi ottieni finalmente 42 pulito!!
 -MERGE : fai in un'unica istruzione cioe che richiederebbe select+update+insert
 -'OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY'  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY significa "salta :offset rows e prendi le prossime :limit rows", e.g. per page 2 con page_size 20 -> OFFSET 20 ROWS FETCH NEXT 20 ROWS ONLY, quindi salta i primi 20 e prendi i successivi 20
+-COALESCE(x,y,...): prende il primo che ritorna qualcosa (quindi non è Null) partendo da sx.  
 
 
 🔥📈MULTI-TENANT ARCHITECTURE
@@ -172,7 +173,7 @@ Field serve x aggiungere metadati e regole ai fields e.g.name: str = Field(..., 
 -*args vs **kargs:  
     *args serve per passare numero X di vars e.g. ad una funzione e.g. def sum(*args),
     **kargs per passare X vars in key-value 
-🔥-@classmethod : per creare metodo che appartiene alla classe, NON all'istanza. come primo param della function devi usare 'cls', quindi questa funct diventa un factory method cosi non devi scrivere ovunque PaginatedResponse(...) !!
+🔥-@classmethod : dice a python che questa funzione appartiene alla classe e NON all'istanza. per validator pydantic è lo standart. come primo param della function devi usare 'cls', quindi questa funct diventa un factory method cosi non devi scrivere ovunque PaginatedResponse(...) !!
 - tenant: Annotated[TenantContext, Depends(get_current_tenant)],  #Annotated blocca il type che puo essere solo di quel tipo, 🔥Depends(...) dice a fastpi di eseguire PRIMA get_current_tenant e poi SOLO DOPO questa funct
 -from typing import Any, Generic, TypeVar   #Generic per tipi generici, TypeVar per definire variabili di tipo generico
 -from __future__ import annotations : oggi da python moderno non è necessario, ma è molto importante lasciarlo soprattutto in prj grandi x legacy. trasforma qualcosa come  'def get_user()->User:' in 'def get_user() -> "User":' quindi tutte le annotazioni vengono conservate come str.

@@ -31,3 +31,4 @@ class FeedbackRequest(BaseModel):
     message_id: int
     rating: int = Field(..., ge=-1, le=1)  # -1 = thumbs down, 1 = thumbs up
     comment: str | None = None
+
