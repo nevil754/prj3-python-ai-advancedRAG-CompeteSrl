@@ -7,32 +7,33 @@ logging:
   level: "INFO"
   console_output: true
   colored: true
-  json_output: false              # true in prod — si parsano facilmente da Loki/Datadog
+  json_output: false              #true in prod, si parsano facilmente da Loki/Datadog
 
   format:
-    # formato human-readable per dev
+    #formato human-readable per dev
     console: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-    # formato json per prod (json_output: true)
+    #formato json per prod (json_output: true)
     json_fields:
       - "time"
       - "level"
       - "name"
       - "line"
       - "message"
-      - "extra"       # contiene tenant_id, request_id, user_id aggiunti via logger.bind()
+      - "extra"       #contiene tenant_id, request_id, user_id aggiunti via logger.bind()
 
-  # file di log (opzionale in dev, obbligatorio in prod)
+  #file di log (opzionale in dev, obbligatorio in prod)
   file:
     enabled: false
     path: "/app/logs/rag-{time:YYYY-MM-DD}.log"
-    rotation: "00:00"             # nuovo file ogni giorno a mezzanotte
+    rotation: "00:00"             #nuovo file ogni giorno a mezzanotte
     retention: "30 days"
     compression: "gz"
-    level: "DEBUG"                # su file logga tutto, su console solo INFO+
+    level: "DEBUG"                #su file logga tutto, su console solo INFO+
 
-  # campi di contesto aggiunti automaticamente dal middleware
+  #campi di contesto aggiunti automaticamente dal middleware
   context_fields:
     - "tenant_id"
     - "request_id"
     - "user_id"
     - "route"
+

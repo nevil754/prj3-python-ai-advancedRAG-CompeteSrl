@@ -51,13 +51,13 @@ WORKDIR /app
 COPY config/ ./config/
 COPY main.py .
 COPY app/ ./app/
-  #⭐️ QUESTO ORDINE è TOP! se editi un file in app/ solo l'ultimo COPY viene rieseguito - i 3 layer precedenti (incluso il pesantissimo pip install) vengono presi dalla cache (non lo riesegui!).
+  #🔥 QUESTO ORDINE è TOP! se editi un file in app/ solo l'ultimo COPY viene rieseguito - i 3 layer precedenti (incluso il pesantissimo pip install) vengono presi dalla cache (non lo riesegui!).
   #copia anche code main.py, entry point FastAPI, questo è importante per uvicorn main:app
 
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 #crea user Linux non privilegiato!
 USER appuser
-#da qui in poi processo gira come utente normale, ottima pratica x production!
+#da qui in poi processo gira come utente non privilegiato, ottima pratica x production!
 
 RUN mkdir -p /app/.cache/embeddings
 #🔥directory cache per modelli embedding, fastembed scarica i modelli qui

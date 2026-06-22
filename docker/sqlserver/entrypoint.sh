@@ -8,7 +8,7 @@ set -e    #dice a BAsh 'se QUALSIASI comando fallisce -> termina immediatamente 
 
 echo "Attendo SQL Server..."  #log console
 until /opt/mssql-tools18/bin/sqlcmd \   #loop bash, ripete finche il COMMAND non ha successo, in questo caso il comando /opt/mssql-tools18/bin/sqlcmd (client CLI SQL Server) che verifica se SQL Server è vivo
-    -S localhost \   #-S = server, poi vuole sapere a quale server deve connttersi, quindi gli dici connnettiti a localhost
+    -S localhost \   #-S = server, poi vuole sapere a quale server deve connettersi, quindi gli dici connnettiti a localhost
     -U SA \    #-U = user, poi vuole sapere a quale utente SQL deve connettersi, dice connettiti come utente SA(System Administrator)
     -P "$SA_PASSWORD" \   #-P = password (presa da file .env), poi vuole sapere la psw, gli dai la psw 
     -Q "SELECT 1" > /dev/null 2>&1; do    #-Q = query, esegue query di test "SELECT 1", se risponde è vivo, se fallisce è unhealthy, > /dev/null butta via stdout, 2>&1 redirect stderr verso stdout., così non vediamo errori di connessione in console finché non è pronto

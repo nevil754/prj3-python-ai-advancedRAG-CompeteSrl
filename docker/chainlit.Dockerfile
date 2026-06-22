@@ -17,11 +17,10 @@ COPY chainlit_app/app.py app.py
 COPY chainlit_app/.chainlit/ .chainlit/
   #copia sorgente app e configurazione Chainlit
 
-# Utente non privilegiato per sicurezza
 RUN addgroup --system appgroup \
  && adduser --system --ingroup appgroup --no-create-home appuser \
  && chown -R appuser:appgroup /app
-  #crea utente appuser, lo aggiunge al gruppo appgroup (non crea /home/appuser !), e dà a questo utente la proprietà della directory /app (dove risiede l'app) (prima era di default /app owner=root ), -R significa ricorsivo cioe , ora quando chainlit partira il processo sara = utente appuser ottimo cosi x security se qualcuno prova a hackerare visto che abbiamo cambaito root->appuser vara permessi limitati
+  #crea utente (non privilegiato) appuser, lo aggiunge al gruppo appgroup (non crea /home/appuser !), e dà a questo utente la proprietà della directory /app (dove risiede l'app) (prima era di default /app owner=root ), -R significa ricorsivo cioe , ora quando chainlit partira il processo sara = utente appuser ottimo cosi x security se qualcuno prova a hackerare visto che abbiamo cambiato root->appuser avra permessi limitati
 
 USER appuser
 

@@ -1,4 +1,4 @@
--- Strategia: schema-per-tenant dentro un unico database RAGChat
+-- strategia: schema-per-tenant dentro un unico database RAGChat
 
 USE master;  --db di sistema, da cui creiamo il nostro db RAGChat
 GO  --separatore batch code
@@ -19,7 +19,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'shared')  --in sqlserver(
     EXEC('CREATE SCHEMA shared');
 GO
 
--- Registro di tutti i tenant attivi
+-- registro di tutti i tenant attivi
 IF NOT EXISTS (
     SELECT 1 FROM sys.tables t
     JOIN sys.schemas s ON t.schema_id = s.schema_id
@@ -43,7 +43,7 @@ CREATE TABLE shared.tenants (
 );
 GO
 
---🔥Audit log globale (GDPR, compliance legale)
+--🔥audit log globale (x GDPR, compliance legale)
 IF NOT EXISTS (
     SELECT 1 FROM sys.tables t
     JOIN sys.schemas s ON t.schema_id = s.schema_id
@@ -67,7 +67,7 @@ GO
 CREATE INDEX IX_audit_tenant_date ON shared.audit_log (tenant_id, created_at DESC);  --index per iterare velocemente i records quando utente fa una search
 GO
 
--- Utilizzo token per billing e rate limiting
+-- utilizzo token per billing e rate limiting
 IF NOT EXISTS (
     SELECT 1 FROM sys.tables t
     JOIN sys.schemas s ON t.schema_id = s.schema_id
@@ -111,6 +111,7 @@ GO
 
 
 --###################################
+
 --stored procedure: provisioning dinamico di un tenant, 🔥🔥GRAZIE A QUESTO OGNI 'AZIENDA' AVRA UN'INTERO SCHEMA SOLO PER LUI!!
 --chiamata da Python (tenant_db.provision_tenant) al signup
 CREATE OR ALTER PROCEDURE shared.sp_provision_tenant  --🔥🔥CREA AUTOMATICAMENTE UNO SCHEMA SQL COMPLETO PER OGNI CLIENTE see screenshot multi-tenant-architecture.svg QUINDI OGNI 'AZIENDA' GLI VIENE CREATO UN SUO INTERO SCHEMA SOLO PER LUI!!
@@ -125,14 +126,14 @@ BEGIN  --inizio del corpo
     DECLARE @schema_name NVARCHAR(200) = 'tenant_' + REPLACE(@slug, '-', '_');  --converte e.g. "acme-corp" -> "tenant_acme_corp", perche i '-' non sono validi in sqlserver nei nomi di schema/tabelle! quindi li converto
     DECLARE @sql NVARCHAR(MAX);  --here creerai query sql dinamiche 
 
-    --1. Crea schema
+    --1.crea schema
     IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = @schema_name)
     BEGIN
         SET @sql = 'CREATE SCHEMA [' + @schema_name + ']';
         EXEC sp_executesql @sql;    --esegue sql dentro quella var locale 
     END
 
-    --2. Inserisci record in shared.tenants
+    --2.inserisci record in shared.tenants
     IF NOT EXISTS (SELECT 1 FROM shared.tenants WHERE slug = @slug)
     BEGIN
         INSERT INTO shared.tenants (slug, display_name, plan)    --insert in tab condivisa 

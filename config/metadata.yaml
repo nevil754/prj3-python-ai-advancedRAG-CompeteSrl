@@ -5,7 +5,7 @@
 # e permettono i filtri nel retrieval
 # =============================================================
 
-#Campi estratti da OGNI documento (indipendente dal tipo)
+#campi estratti da OGNI documento (indipendente dal tipo)
 common_fields:
   - name: "tenant_id"
     type: "keyword"
@@ -50,8 +50,8 @@ common_fields:
     type: "datetime"
     required: true
 
-#Campi specifici per tipo di documento
-#Estratti automaticamente dal parser quando disponibili
+#campi specifici per tipo di documento
+#estratti automaticamente dal parser quando disponibili
 document_types:
   contract:
     description: "Contratti, accordi, convenzioni"

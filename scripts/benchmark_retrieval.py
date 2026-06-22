@@ -80,7 +80,7 @@ async def main():
         )
         answer = result["answer"]
         print(f"A: {answer[:150]}...")   #prendi solo i primi 150chars
-        # Valutazione keyword matching (semplice, senza LLM)
+        #valutazione keyword matching (semplice, senza LLM)
         answer_lower = answer.lower()
         matches = sum( 1 for kw in expected if kw.lower() in answer_lower )  #conta keyword trovate!
         keyword_score = matches / len(expected) if expected else 0.0   #score keyword 
@@ -99,7 +99,7 @@ async def main():
             "keyword_score": keyword_score,
             "faithfulness_score": faith_score,
             "combined_score": combined_score,
-            "top_sources": [c.filename for c in chunks[:3]],   #prendi i nomi dei file dei top 3 chunks come fonti principali
+            "top_sources": [ c.filename for c in chunks[:3] ],   #prendi i nomi dei file dei top 3 chunks come fonti principali
         })
     avg_score = total_score / len(BENCHMARK_DATASET)
     print( f"\n{'='*60}" )

@@ -4,7 +4,7 @@
 # Variabili: {context}, {question}, {history}, {tenant_name}
 # =============================================================
 
-# ─── Sistema base ─────────────────────────────────────────────
+#sistema base
 system:
   base: |
     Sei un assistente legale AI per {tenant_name}.
@@ -21,7 +21,7 @@ system:
     Non inventare mai informazioni che non sono nei documenti forniti.
     Se non trovi la risposta nei documenti, dillo esplicitamente.
 
-# ─── RAG — risposta da documenti ─────────────────────────────
+#RAG, risposta da documenti
 rag:
   main: |
     Usa ESCLUSIVAMENTE le seguenti sezioni di documenti per rispondere alla domanda.
@@ -50,7 +50,7 @@ rag:
 
     Ti consiglio di verificare con le fonti originali per una risposta definitiva.
 
-# ─── Query expansion / rewriting ─────────────────────────────
+#query expansion / rewriting
 query:
   rewrite: |
     Riscrivi la seguente domanda dell'utente in modo da renderla più efficace per la ricerca
@@ -68,7 +68,7 @@ query:
     Domanda: {question}
     Varianti:
 
-# ─── Hallucination check ──────────────────────────────────────
+#hallucination check
 hallucination:
   check: |
     Valuta se la risposta seguente è supportata dai documenti forniti.
@@ -82,7 +82,7 @@ hallucination:
 
     JSON:
 
-# ─── Titolo conversazione ─────────────────────────────────────
+#titolo conversazione
 conversation:
   generate_title: |
     Genera un titolo breve (max 6 parole) per una conversazione che inizia con questa domanda.
@@ -91,7 +91,7 @@ conversation:
     Domanda: {question}
     Titolo:
 
-# ─── SQL Agent ────────────────────────────────────────────────
+#SQL agent
 sql_agent:
   system: |
     Sei un agente SQL. Converti le domande in linguaggio naturale in query SQL valide
@@ -101,7 +101,7 @@ sql_agent:
     Schema disponibile:
     {schema_info}
 
-# ─── Web Agent ────────────────────────────────────────────────
+#web agent
 web_agent:
   system: |
     Sei un agente di ricerca web. Usa i risultati di ricerca forniti per rispondere
@@ -114,7 +114,7 @@ web_agent:
     DOMANDA: {question}
     RISPOSTA:
 
-# ─── Router Agent ─────────────────────────────────────────────
+#router agent
 router:
   classify: |
     Classifica la seguente domanda dell'utente in una di queste categorie:
@@ -127,3 +127,4 @@ router:
 
     Domanda: {question}
     Categoria:
+

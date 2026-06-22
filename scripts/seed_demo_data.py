@@ -61,7 +61,7 @@ async def main():
             text("SELECT id FROM users WHERE email = :email"),
             {"email": DEMO_USER_EMAIL}
         )
-        if not existing.fetchone():  #se non riesce a fetcharne neanche 1, allora ...
+        if not existing.fetchone():    #se non riesce a fetcharne neanche 1, allora ...
             await session.execute(
                 text("""
                     INSERT INTO users (id, email, role, password_hash, full_name)
@@ -77,7 +77,7 @@ async def main():
         else:
             print(f"  Utente demo già esistente: {DEMO_USER_EMAIL}")
 
-    # Salva documenti demo su disco e ingestionali
+    #salva documenti demo su disco e ingestionali
     import tempfile
     import os
     from app.rag.ingestion.pipeline import run_ingestion_pipeline    #ur custom
@@ -97,7 +97,7 @@ async def main():
             encoding="utf-8",
         ) as f:
             f.write( doc["content"] )  #scrive sul documento
-            tmp_path = f.name  #e.g. C:\Temp\tmp123.txt
+            tmp_path = f.name          #e.g. C:\Temp\tmp123.txt
         try:
             doc_id = str(uuid4())
             async with tenant_db.aget_session(DEMO_TENANT_SLUG) as session:

@@ -3,7 +3,7 @@ app:
   version: "0.1.0"  #0.x → prototipo/dev, 1.x → beta, 2.x → prod
   debug: false  #se true allora log piu verbosi e stacktrace completi, in production sempre False!
   environment: "development"  #ambiente runtime. development | staging | production dal code puoi leggere here per settare behaviors diversi e.g.CORS
-  description: "competeSrl RAG system enterprise legal: con retrieval ibrido reranking memoria conversazionale"
+  description: "Compet-eSrl RAG system enterprise legal: con retrieval ibrido reranking e memoria conversazionale"
 
 ingestion:
   parser:  #parser: docling per PDF/DOCX complessi, unstructured come fallback
@@ -13,7 +13,7 @@ ingestion:
     languages: ["it", "en"]
   splitter:  #how CHUNKING documenti
     chunk_size: 1000
-    chunk_overlap: 200  #overlap tra chunk consecutivi, per evitare perdita contesto
+    chunk_overlap: 200    #overlap tra chunk consecutivi, per evitare perdita contesto
     strategy: "markdown"
   loader:
     extensions: [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".md"]
@@ -60,20 +60,20 @@ vectorstore:
   collection_name: "collection-competeSrl-RAGv2"
   use_sparse: true
   force_recreate: false    #se true allora cancella e ricrea la collection ad ogni avvio, ok sviluppo per evitare dati obsoleti ma in produzione deve essere false
-  distance: "Cosine"    #Cosine | Dot | Euclid
+  distance: "Cosine"        #Cosine | Dot | Euclid
   on_disk_payload: true     #metadata su disco anziché RAM, molto utile grandi dataset!
 
 memory:    #memoria conversazionale
   short_term_turns: 10        #ultimi N messaggi mantenuti in Redis
-  long_term_enabled: false    #memory persistente conversazioni. summary in SQL — attivare in v2 (nella seconda versione, prima deve funzionare tutto in v1)
+  long_term_enabled: false    #memory persistente conversazioni. summary in SQL (magari da attivare in v2, pero prima deve funzionare tutto in v1)
   session_ttl_hours: 24      #scadenza sessione
   #fact_extraction_enabled: true  # ← attiva estrazione fatti   x temporal-memory imitando Zep plugin, lo farai in v2
   #semantic_memory_enabled: true  # ← attiva ricerca semantica  x temporal-memory (anche di anni) imitando Zep plugin, lo farai in v2
   #facts_collection: "memory"     # nome collection Qdrant per i ricordi  x temporal-memory (anche di anni) imitando Zep plugin, lo farai in v2
 
 cache:
-  query_ttl_seconds: 3600         #cache query rag, 1h — risposta RAG per la stessa query
-  session_ttl_seconds: 86400      #cache sessione, 24h — storia chat
+  query_ttl_seconds: 3600         #cache query rag, 1h, risposta RAG per la stessa query
+  session_ttl_seconds: 86400      #cache sessione, 24h, storia chat
 
 web_search:    #web retrieval esterno
   enabled: false
