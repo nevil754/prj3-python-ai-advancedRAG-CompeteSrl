@@ -108,12 +108,12 @@ class ChatService:
         }
         await self.redis.set_query_cache( query_hash, json.dumps(response) )   #salvi la risposta su cache, json.dumps() converts python obj in corrisponding json formatted string. CON QUESTO SALVI EFFETTIVAMENTE IN CACHE UN OBJ sotto una key target.
         await self._increment_usage_stats(
-            tokens_in=result.get("tokens_in", 0),
+            tokens_in=result.get("tokens_in", 0),  #0 is fallback
             tokens_out=result.get("tokens_out", 0),
         )
         return response
 
-    async def stream_query(
+    async def stream_query(   #stream SSE token-by-token!
         self,
         question: str,
         conversation_id: str | None = None,
@@ -128,10 +128,10 @@ class ChatService:
         cached = await self.redis.get_query_cache(query_hash)
         if cached:
             logger.debug("Cache hit per query RAG (streaming)")
-            cached_data = json.loads(cached)
-            yield cached_data.get("answer", "")
+            cached_data = json.loads(cached)  #converts json strutturato in corrisponding python obj
+            yield cached_data.get("answer", "")  #"" as fallback
             # Emette il sentinel anche in cache-hit così il client riceve sources e conversation_id
-            yield "\x1e" + json.dumps({
+            yield "\x1e" + json.dumps({  #⚡️⚡️usi char SENTINELLA ("\x1e") cosi che dopo che hai passato il text normale per ultimo passi anche e.g. '\x1e{"sources":[...],"conversation_id":"abc"}' CHE SONO I METADATI che vuoi che il frontend riceva!
                 "sources": cached_data.get("sources", []),
                 "conversation_id": conv_id,
                 "latency_ms": cached_data.get("latency_ms"),
@@ -146,7 +146,7 @@ class ChatService:
         )
         start = time.time()
         full_answer = ""
-        async for token in astream_rag_chain(
+        async for token in astream_rag_chain(   #ora che hai tutto quello che ti serve, lo passi al frontend via stream
             question=question,
             chunks=chunks,
             session_messages=session_messages,
@@ -154,7 +154,7 @@ class ChatService:
             full_answer += token
             yield token
         latency_ms = round((time.time() - start) * 1000)
-        await self._save_messages(
+        await self._save_messages(   #salvi su tabelle sqlserver conversations e messages
             conv_id=conv_id,
             question=question,
             answer=full_answer,
@@ -163,16 +163,14 @@ class ChatService:
         )
         await self.redis.append_message(conv_id, {"role": "user", "content": question}, settings.memory_short_term_turns)
         await self.redis.append_message(conv_id, {"role": "assistant", "content": full_answer}, settings.memory_short_term_turns)
-        response_to_cache = {
+        response_to_cache = {   #obj da salvare su cache sotto key target
             "answer": full_answer,
             "conversation_id": conv_id,
             "sources": format_sources_for_response(chunks),
             "latency_ms": latency_ms,
         }
         await self.redis.set_query_cache(query_hash, json.dumps(response_to_cache))
-        # Sentinel finale — interceptato da chat.py e trasformato nell'evento SSE "done".
-        # Il carattere \x1e (ASCII Record Separator) non può mai apparire nel testo normale.
-        yield "\x1e" + json.dumps({
+        yield "\x1e" + json.dumps({  #⚡️⚡️usi char SENTINELLA ("\x1e") cosi che dopo che hai passato il text normale per ultimo passi anche e.g. '\x1e{"sources":[...],"conversation_id":"abc"}' CHE SONO I METADATI che vuoi che il frontend riceva!
             "sources": format_sources_for_response(chunks),
             "conversation_id": conv_id,
             "latency_ms": latency_ms,
@@ -199,6 +197,7 @@ class ChatService:
             """),   #i ':' sono x i placeholders
             {"id": conv_id, "user_id": self.user_id}
         )  #crei la conversazione se non esiste
+
         await self.db.execute(
             text("""
                 INSERT INTO messages (conversation_id, role, content)
@@ -206,6 +205,7 @@ class ChatService:
             """),
             {"conv_id": conv_id, "content": question}
         )  #salvi mex utente
+
         result = await self.db.execute(
             text("""
                 INSERT INTO messages
@@ -221,25 +221,27 @@ class ChatService:
                 "tokens_out": tokens_out,
                 "latency_ms": latency_ms,
             }
-        )  #salvi risposta assistant
+        )  #salvi risposta dell'assistant!
         row = result.fetchone()
         return row[0] if row else 0
 
+
     async def _increment_usage_stats( self, tokens_in: int, tokens_out: int ) -> None:
-        """Incrementa contatori Redis per il rollup notturno. serve x analytics"""
+        """Incrementa contatori Redis per il rollup notturno. serve x analytics!"""
         from datetime import date
         today = date.today().isoformat()   #data di oggi e.g.2026-06-09
         base = f"tenant:{self.tenant_id}:stats:{today}"
         pipe = self.redis._redis.pipeline()   # crea pipeline= batch di operazioni (piu veloce)
         #incrementa i contatori tuoi di redis
         pipe.incrby(f"{base}:tokens_in", tokens_in)   #incrementa tokens_in del redis session target
-        pipe.incrby(f"{base}:tokens_out", tokens_out)
+        pipe.incrby(f"{base}:tokens_out", tokens_out)  #**
         pipe.incr(f"{base}:queries")   #incrementa queries di 1 ogni volta che fai una query, senza tokens_in/out, solo numero query totali
         #setta l'expire dei contatori
         pipe.expire(f"{base}:tokens_in", 172800)   #48h TTL(time-to-live), redis cancella automaticamente la chiave dopo 48h, cosi non accumuli dati vecchi inutili
         pipe.expire(f"{base}:tokens_out", 172800)
         pipe.expire(f"{base}:queries", 172800)
-        await pipe.execute()  #invia batch di operazioni a redis
+        await pipe.execute()   #invia batch di operazioni a redis
+
 
 def _hash_query(question: str, conv_id: str) -> str:
     """Hash deterministica per la cache query."""
