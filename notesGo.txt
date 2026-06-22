@@ -186,6 +186,7 @@ Field serve x aggiungere metadati e regole ai fields e.g.name: str = Field(..., 
     *args serve per passare numero X di vars e.g. ad una funzione e.g. def sum(*args),
     **kargs per passare X vars in key-value 
 🔥-@classmethod : dice a python che questa funzione appartiene alla classe e NON all'istanza. per validator pydantic è lo standart. come primo param della function devi usare 'cls', quindi questa funct diventa un factory method cosi non devi scrivere ovunque PaginatedResponse(...) !!
+-@staticmethod : when a function logically belongs to a class but does not need access to self or cls.
 - tenant: Annotated[TenantContext, Depends(get_current_tenant)],  #Annotated blocca il type che puo essere solo di quel tipo, 🔥Depends(...) dice a fastpi di eseguire PRIMA get_current_tenant e poi SOLO DOPO questa funct
 -from typing import Any, Generic, TypeVar   #Generic per tipi generici, TypeVar per definire variabili di tipo generico
 -from __future__ import annotations : oggi da python moderno non è necessario, ma è molto importante lasciarlo soprattutto in prj grandi x legacy. trasforma qualcosa come  'def get_user()->User:' in 'def get_user() -> "User":' quindi tutte le annotazioni vengono conservate come str.

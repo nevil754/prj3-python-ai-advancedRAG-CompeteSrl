@@ -171,6 +171,7 @@ class TenantDB:
             logger.error(f"SQL Server ping fallito: {e}")
             return False
 
+
 def _slug_to_schema(slug: str) -> str:
     """
     Converte slug tenant nel nome dello schema SQL Server.

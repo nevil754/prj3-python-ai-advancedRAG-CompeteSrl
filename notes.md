@@ -125,7 +125,7 @@ rag-enterprise/
 │   │
 │   ├── services/                    # Orchestration layer: coordina DB + RAG + Redis
 │   │   ├── chat_service.py          # ★ cache → retrieval → generation → memory → DB → stats
-│   │   ├── document_service.py      # upload → hash check → DB → dispatch Celery job
+│   │   ├── document_service.py      # 🔥🔥TODO upload → hash check → DB → dispatch Celery job
 │   │   └── tenant_service.py        # provision: SQL schema + Qdrant collection + admin user
 │   │
 │   ├── workers/                     # Celery tasks asincroni

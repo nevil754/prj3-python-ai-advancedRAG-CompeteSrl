@@ -11,7 +11,7 @@ from app.core.vectorstore import ensure_collection
 from app.db.sqlserver import tenant_db
 
 
-async def provision_tenant(
+async def provision_tenant(    #🔥🔥🔥 provision_tenant() crea schema tenant + ensure_collection() crea collection qdrant (x my tenant) + crei utente admini iniziale.
     slug: str,
     display_name: str,
     plan: str = "starter",
@@ -29,7 +29,7 @@ async def provision_tenant(
         dict con tenant_id, slug, admin_user_id
     """
     logger.info(f"Provisioning tenant: {slug}")
-    await tenant_db.provision_tenant( slug=slug, display_name=display_name, plan=plan )
+    await tenant_db.provision_tenant( slug=slug, display_name=display_name, plan=plan )  #CREA SCHEMA TENANT!
     async with tenant_db._async_factory() as session:
         from sqlalchemy import text
         row = await session.execute(
@@ -43,7 +43,7 @@ async def provision_tenant(
 
     import asyncio
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor( None, ensure_collection, slug )  #esegue funct sync da code async, in questo caso per creare la collection Qdrant per il tenant. Se la collection esiste già, ensure_collection() è idempotente e non fa nulla.
+    await loop.run_in_executor( None, ensure_collection, slug )  #esegue funct sync da code async, in questo caso per creare la collection Qdrant per il tenant 
     logger.info(f"Collection Qdrant creata per tenant: {slug}")  
     admin_user_id = None
     if admin_email and admin_password:
