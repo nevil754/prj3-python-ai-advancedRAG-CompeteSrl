@@ -4,7 +4,12 @@ questo prj batterà app RAG internazionalmente famose come Legora/Harvey/ LexRoo
 //in futuro fovrai pensare anche al GDPR per la privacy, quindi anonimizzare i dati sensibili!
 //⚠️⚠️ TODO FUTURE/ATTENTIONS!!!
 -manca tabella tsql 'conversation_summaries' chiamata in conversation_repo.py & long_term.py !!
--TODOfuture:  i files dentro mcp/.
+-TODO: 
+--check se readbeat (x celry cosi che salva i tasks periodici in modo persistente su redis)
+--agents con flow Supervisore , ... ect..
+--files dentro mcp/
+
+
 
 ############################################################################
 

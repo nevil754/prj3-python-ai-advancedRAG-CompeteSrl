@@ -3,18 +3,18 @@
 devi assicurarti di bloccare le dipendenze transitive (quelle che anche se non scarichi direttamente, vengono scaricate).
 
 1.crea ambiente asettico
-conda create -n envCompeteSrlRAGproductionOKpluginsTransitivi python=3.11.9  #USO VERSION 3.11.9🔥
+conda create -n envCompeteSrlRAGproductionOKpluginsTransitivi python=3.11.9  #USO VERSION 3.11.9🔥 best stability
 conda activate envCompeteSrlRAGproductionOKpluginsTransitivi
 python -m pip install --upgrade pip
 pip install pip-tools
 
-2.assicurati che i file dove hai elencato tutti i plugins, non si chiamino .txt --> .in ! 
+2.assicurati che i file dove hai elencato tutti i plugins, non si chiamino .txt ma si chiamino .in ! 
 3.genera i lock file con versioni transitive bloccate runnando (in root prj):
 pip-compile requirements.in --output-file requirements.txt --resolver=backtracking --no-header --annotate
 //prima avevo anche '--pre' finale per gestire la versione alpha di markitdown, ma ora faccio direttamente >=0.0.1
 pip-compile requirements-dev.in --output-file requirements-dev.txt --resolver=backtracking --no-header --annotate
 
-ora hai appena creato i files .txt, con ogni singolo pacchetto (diretto e TRANSITIVO) pinato alla versione esatta!!
+ora hai appena creato i files .txt, con ogni singolo pacchetto (diretto e TRANSITIVO) pinnato alla versione esatta!!
 INFATTI SE GUARDI IL FILE .TXT GENERATO VEDRAI ANCHE LE DIPENDENZE TRANSITIVE CON LE LORO VERSIONI!! quindi ora se fai 'pip install..' su quello, pip non decide piu come vuole lui le dipendenze transitive!!
 4. assicurati di aggiungere '--no-deps' nei Dockerfile (e.g.celery.Dockerfile) quando fai ... --no-cache-dir --no-deps -r requirements.txt
 5. solo ORA puoi installare i pacchetti in modo deterministico
@@ -38,7 +38,7 @@ con 'docker-compose -f docker-compose.yml up -d', docker rispetta i depends_on e
 -Seconda ondata: Docker aspetta che sqlserver superi il suo healthcheck (il SELECT 1 via sqlcmd). Questo può richiedere 30-60 secondi perché SQL Server è lento ad avviarsi. Solo quando il healthcheck passa, Docker considera sqlserver come service_healthy.
 -Terza ondata: solo a quel punto partono fastapi, celery-worker-high, celery-worker-default. Tutti e tre dipendono da sqlserver: condition: service_healthy. Redis e Qdrant usano condition: service_started che è meno restrittivo — basta che il processo sia partito.
 Sempre attivi: celery-beat dipende solo da Redis, parte presto. flower dipende solo da Redis, parte presto.
-//see also screenshot 'docker-production-architecture.svg'
+//see also screenshot 'myimgs/docker-production-architecture.svg'
 
 -dentro la rete docker, tutti i containers si vedono tramite il nome del servizio come hostname.
 e.g. è per questo che hai fatto in .env SQLSERVER_HOST=sqlserver, xk sqlserver è il nome container (docker auto gestisce dns interno che risolve sqlserver all'ip privato del container).
@@ -75,7 +75,7 @@ server {
 - trovi img fastapi python ufficiali in https://hub.docker.com/ filtrando x 'Docker Official Image'.
 
 ########DB
-tabella audit: cronologia IMMUTABILE di tutto quello che succede nel sistema (chia fatto cosa, quando lo ha fatto, con che dati, da dove, ect)
+tabella audit: cronologia IMMUTABILE di tutto quello che succede nel sistema (chi ha fatto cosa, quando lo ha fatto, con che dati, da dove, ect)
 fondamentale in contesti enterprise🔥
 e.g. record di audit
 {
@@ -106,7 +106,7 @@ techniques multi-tenant:
 -🔥Schema-Per-Tenant (QUELLO CHE USO IO, BEST, una query su tenant_azienda1 NON puo vedere dati di tenant_azienda2), 
 -Row-level (una tabella per tutte le aziende, ogni tab ha un tenant_id, soluzione piu easy ma moolti possibili bugs)
 -Database-Per-Tenant (massima security e isolamento, ma non è ottimo economicamente avere 1 database per ogni azienda)
-ricorda che uno 'schema' è un contenitore logico, che puo contere piu tabelle
+ricorda che uno 'schema' è un contenitore logico, che puo contere piu tabelle.
 la mia procedura CREATE OR ALTER PROCEDURE shared.sp_provision_tenant  🔥🔥CREA AUTOMATICAMENTE UNO SCHEMA SQL COMPLETO PER OGNI CLIENTE see screenshot multi-tenant-architecture.svg QUINDI OGNI 'AZIENDA' GLI VIENE CREATO UN SUO INTERO SCHEMA SOLO PER LUI!!
 
 NEL MIO TENANT-ARCHITECTURE
@@ -141,7 +141,7 @@ flow:
 5. quando la risposta è completa, allora aggiorna session Redis - mette risposta in cache - incrementa usage_stats per il billing
 //quindi Celery entra in gioco se la query triggera un'azione lenta e.g.upload 200docs / web scapring aggressivo (ricordati che con Tavily hai 1k req/mese free, quindi va bene solo x development!! )
 
--Memoria Temporale Graph(anche di anni) per agents:
+⚡️⚡️-Memoria Temporale Graph(anche di anni) per agentsn (quella che il pro sto pensando di sviluppare io):
 🔥--ZEP(https://github.com/getzep/zep?utm_source=chatgpt.com): self-hosted, memoria persistente temporal resoning knowledge graph dinamico context retrieval ultraveloce, e.g.2024 Nelvison preferisce Nvidia 2026 Nelvison preferisce SpaceX quindi il system sa cosa era vero quando è cambiato ed cosa oggi è vero! GOOD GOOD.
 --Mem0: memory abstraction layer minimal molto piu semplice di Zep, ok production ready.
 --MemGPT(old) / Letta(new version): non solo save memory ma anche costruisce agents stateful permanenti, lavora quasi come ram o hard disk di un pc, è molto piu agentico OVERKILL per te now. 
@@ -160,6 +160,7 @@ memoria temporale nella tua app (lo farai in v2): nelle tabelle del tenant, dovr
 --redis: redis managed (consigliato), Redis cluster stateful set (avanzato)
 --sql server: managed DB (consigliato), StatefulSet+AlwaysOn
 --qdrant: cloud(consigliato), cluster con shard
+//quindi per i servizi stateful se vuoi scalare, di solito si usa cloud managed all'inizio, cosi risparmi tempo e fatica invece di settare tutto te.
 
 ########
 
@@ -178,15 +179,14 @@ Field serve x aggiungere metadati e regole ai fields e.g.name: str = Field(..., 
 -rsplit(): splitta str into a lista, starting from the right.
 🔥🔥- items = [ DocumentSchema.model_validate( dict(r._mapping) ) for r in rows ]  #_mapping converte row sqlalchemy (e.g. rows = await db.execute(....)) in dict-like, dict() converte in dict normale, model_validate() valida e trasforma in DocumentSchema. quindi il risultato è un array di types DocumentSchema, OTTIMO X CONVERTIRE LE ROWS RESULT DAL DB -> DICT PYTHON CON OBJ VALIDATI  
 -return CollectionSchema.model_validate( dict(row.fetchone()._mapping) )   #fetchone() prende 1 row, _mapping converte row sqlalchemy in dict-like, dict() converte in dict normale, model_validate() valida e trasforma in CollectionSchema
--import asyncio; loop = asyncio.new_event_loop();
 !-zip: itera su piu liste (o sequenze) in parallelo, mettendo insieme gli elementi che sono nella stessa posizione index, e ottieni qualcosa come [(Xelems),(Xelems),(Xelems)].
-🔥- #!/usr/bin/env python3  in cima a file python è un shebang ASSOLUTAMENTE DA AGGIUNGERE SE QUESTO FILE .PY E' DIRETTAMENTE ESEGUIBILE DAL SYSTEM e serve nei system linux/unix/macos e dice al system e.g. here che deve runnare python. #! indica che ora segue un interprete, /usr/bin/env python chiede al system di trovare python nel PATH, serve se vuoi eseguire file con 
+🔥- #!/usr/bin/env python3  in cima a file python è un shebang ASSOLUTAMENTE DA AGGIUNGERE SE QUESTO FILE .PY E' DIRETTAMENTE ESEGUIBILE DAL SYSTEM (e.g. create_tenant.py)  e serve nei system linux/unix/macos e dice al system e.g. here che deve runnare python. #! indica che ora segue un interprete, /usr/bin/env python chiede al system di trovare python nel PATH, serve se vuoi eseguire file con 
 chmod +x script.py
 ./script.py
 🔥-python di default non gestisce bene async, quindi:
-loop = asyncio.get_event_loop(); 
+import asyncio;
+loop = asyncio.get_event_loop();   #loop = asyncio.new_event_loop(); 
 loop.run_in_executor() (prende una funzione no async e la manda in process pool e non blocca il processo main)  loop.run_until_complete() ("esegui questa async function fino alla fine", blocca tutto finche finisce.) 
-
 
 ########
 
@@ -223,7 +223,7 @@ logger.info("Logout", user_id=tenant.user_id, sessions_deleted=deleted)  #log w 
 #    "<level>{message}</level>"
 #) quindi non hai {extra}, quindi in console non renderizzerai anche e.g. user_id e sessions_deleted, ma questi SERVONO CMNQ NEL RECORD LOGURU xk e.g. Grafana/OpenTelemetry/ELK li usano!!!
 - @lru_cache(maxsize=1)  trasforma la functione in singleton, quindi la seconda volta se l'istanza è cia in cache allora ritornalo al chiamante senza doverlo ricaricare.
--good technique x costruction command sql!!
+-good technique x costruction command sql!! 
 offset = (page - 1) * page_size   #offset è il jump da dove deve iniziare, e.g. se setti che pagesize è 20elems allora per leggere pagina 3 devi saltare 40elems iniziali!
     where = "WHERE 1=1"
     params: dict = {"limit": page_size, "offset": offset}
@@ -317,7 +317,8 @@ feature/login-google → develop
 #####################################################
 
 #######
-⭐️⭐️⭐️CHATBOT LONGMEMORY ADAPTABILITY personalization engine
+//e.g. ⚡️plugin ZEP è un temporal memory (si ricorda anche di anni, solo che costa tanto quindi io posso offrire qualcosa di meglio!) anche per risparmiare context & consume of tokens; ALL agents need of this!!  
+⭐️⭐️⭐️CHATBOT LONGMEMORY ADAPTABILITY personalization engine 
 //questo è agentic memory (dal 2026 gli agents stanno usando il web piu degli umani, e gli servono strumenti!)
 //🔥pensa che l'applicazione deve essere un wrapper, cioe e.g. booking.com ha wrappato le stanze/localibed e gli ha dato tutti gli strumenti, stessa per altri casi simili.!
 
@@ -361,5 +362,6 @@ memory write update: utilizzi un agent 'memory extractor', langgraph node prende
 OGGI GLI AGENTS NON HANNO MEMORIA con questo voglio che ce la abbiano ora.
 
 #######
+- 
 -fare un tavility x scraping web (come https://www.tavily.com/) apposta per agents! perche devono poter andare sul web! e ci sono poche opzioni attualmente.
 
