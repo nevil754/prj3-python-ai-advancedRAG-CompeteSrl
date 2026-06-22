@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  sqlserver:  #nome del servizio SQL Server
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    restart: unless-stopped  #riavviato sempre automaticamente, a meno che non lo fermi tu intenzionalmente
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql  #monta volume chiamato 'sqlserver_data' in path /var/opt/mssql del container, dove SQL Server salva i dati (persistence)
+    environment:  #env vars
+      SA_PASSWORD: "YourStrong!Passw0rd"
+      ACCEPT_EULA: "Y"
+
+volumes:
+  sqlserver_data:

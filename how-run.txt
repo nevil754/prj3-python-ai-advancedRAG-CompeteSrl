@@ -1,0 +1,280 @@
+ ---
+  Come avviare il progetto
+
+  Prerequisiti (su questo PC)
+
+  Sul tuo Windows 11 hai bisogno di una sola cosa: Docker Desktop (https://www.docker.com/products/docker-desktop/).
+
+  Durante l'installazione, assicurati che WSL 2 sia abilitato (Docker Desktop lo chiede automaticamente). Dopo l'installazione,
+  verifica che funzioni aprendo un terminale e digitando:
+
+  ! docker --version
+  ! docker compose version
+
+  ---
+  Avvio locale — passo per passo
+
+  1. Crea il file .env
+
+  Il file .env.example è già nel progetto. Copialo:
+
+  ! copy .env.example .env
+
+  Poi aprilo e compila almeno questi campi prima di avviare:
+
+  # ─── LLM (scegli uno) ─────────────────────────────────────────────
+  OPENAI_API_KEY=sk-...         # se usi OpenAI
+  # oppure lascia vuoto per Ollama locale (vedi sotto)
+
+  # ─── Segreti JWT e sessioni ──────────────────────────────────────
+  JWT_SECRET_KEY=metti-una-stringa-random-lunga-almeno-32-chars
+  CHAINLIT_AUTH_SECRET=altra-stringa-random
+
+  # ─── Password DB e Redis ─────────────────────────────────────────
+  REDIS_PASSWORD=changeme       # puoi lasciare per dev locale
+  SQLSERVER_PASSWORD=YourStrong!Passw0rd   # ⚠️  SQL Server richiede una password "forte"
+
+  # ─── LangSmith (opzionale per ora) ───────────────────────────────
+  LANGSMITH_API_KEY=            # lascia vuoto se non vuoi tracing
+  LANGCHAIN_TRACING_V2=false    # metti false per disabilitare tracing
+
+  ▎ Nota su SQL Server: la password deve contenere maiuscole, minuscole, numeri e simboli altrimenti il container non parte
+  ▎ (YourStrong!Passw0rd va bene per dev).
+
+  ---
+  2. Primo avvio (build + start)
+
+  ! docker compose up --build
+
+  La prima volta ci vogliono 10–20 minuti perché:
+  - Docker scarica le immagini di SQL Server, Redis, Qdrant
+  - Compila i Dockerfile FastAPI, Celery, Chainlit
+  - fastembed scarica il modello BAAI/BGE-M3 (~500 MB) dentro il container Celery
+
+  Vedrai i log di tutti i servizi in tempo reale. Quando smette di scorrere e vedi fastapi | Application startup complete sei
+  pronto.
+
+  ---
+  3. Dal secondo avvio in poi
+
+  ! docker compose up          # avvio (senza --build, molto più veloce)
+  ! docker compose up -d       # avvio in background (non tiene il terminale)
+  ! docker compose down        # stop e rimozione container (i dati restano nei volumi)
+  ! docker compose down -v     # stop + cancella anche i volumi (⚠️  perdi tutti i dati!)
+
+  ---
+  4. URL disponibili dopo l'avvio
+
+  ┌─────────────────────────┬─────────────────────────────────┬──────────────────────────────────────────────────────────┐
+  │        Servizio         │               URL               │                       Credenziali                        │
+  ├─────────────────────────┼─────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ Chainlit UI (la chat)   │ http://localhost:8080           │ quelle che hai messo in APP_USER / APP_PASSWORD nel .env │
+  ├─────────────────────────┼─────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ FastAPI docs (Swagger)  │ http://localhost:8000/docs      │ —                                                        │
+  ├─────────────────────────┼─────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ FastAPI health          │ http://localhost:8000/health    │ —                                                        │
+  ├─────────────────────────┼─────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ Flower (monitor Celery) │ http://localhost:5555           │ FLOWER_USER / FLOWER_PASSWORD dal .env                   │
+  ├─────────────────────────┼─────────────────────────────────┼──────────────────────────────────────────────────────────┤
+  │ Qdrant dashboard        │ http://localhost:6333/dashboard │ —                                                        │
+  └─────────────────────────┴─────────────────────────────────┴──────────────────────────────────────────────────────────┘
+
+  ---
+  5. Creare il primo tenant e caricare dati demo
+
+  Prima di poter usare la chat devi creare un tenant:
+
+  ! docker compose exec fastapi python scripts/create_tenant.py --slug demo-corp --name "Demo Corp" --admin-email admin@demo.com
+  --admin-password Admin123!
+
+  Per caricare documenti di test:
+
+  ! docker compose exec fastapi python scripts/seed_demo_data.py
+
+  ---
+  6. Se usi Ollama (LLM locale, senza OpenAI)
+
+  Ollama non è nel docker-compose (è pensato per girare sul tuo PC o su un server GPU separato). Se hai Ollama installato
+  localmente:
+
+  1. Avvialo: ollama serve
+  2. Scarica un modello: ollama pull llama3
+  3. Nel .env imposta BASE_URL_OLLAMA=http://host.docker.internal:11434 (su Windows, host.docker.internal fa puntare i container al
+  tuo PC fisico)
+  4. In config/config.yaml imposta llm_provider: ollama
+
+  ---
+  7. Modalità sviluppo (hot reload)
+
+  C'è già un docker-compose.override.yml che attiva hot reload automaticamente quando esegui docker compose up. Modifica i file
+  Python e FastAPI si riavvia in pochi secondi senza rebuild.
+
+  ---
+  Avvio sul server aziendale
+
+  Differenze rispetto al PC locale
+
+  ┌────────────────────┬──────────────────────────────┬───────────────────────────────────────────────┐
+  │      Aspetto       │          PC locale           │               Server aziendale                │
+  ├────────────────────┼──────────────────────────────┼───────────────────────────────────────────────┤
+  │ Docker             │ Docker Desktop (Windows)     │ Docker Engine + Docker Compose Plugin (Linux) │
+  ├────────────────────┼──────────────────────────────┼───────────────────────────────────────────────┤
+  │ SSL/HTTPS          │ non necessario               │ obbligatorio — metti Nginx davanti            │
+  ├────────────────────┼──────────────────────────────┼───────────────────────────────────────────────┤
+  │ Password           │ quelle di default vanno bene │ cambia tutto con password forti e random      │
+  ├────────────────────┼──────────────────────────────┼───────────────────────────────────────────────┤
+  │ SQL Server edition │ Developer (gratuita)         │ Standard o Enterprise (licenza)               │
+  ├────────────────────┼──────────────────────────────┼───────────────────────────────────────────────┤
+  │ LLM                │ Ollama locale o OpenAI       │ OpenAI/Azure OpenAI consigliato in prod       │
+  ├────────────────────┼──────────────────────────────┼───────────────────────────────────────────────┤
+  │ Avvio automatico   │ manuale                      │ systemd service o Docker restart policy       │
+  ├────────────────────┼──────────────────────────────┼───────────────────────────────────────────────┤
+  │ Monitoring         │ Flower                       │ Flower + Prometheus + Grafana                 │
+  └────────────────────┴──────────────────────────────┴───────────────────────────────────────────────┘
+
+  ---
+  Passo per passo sul server Linux
+
+  Prerequisiti server
+
+  # Installa Docker Engine (Ubuntu/Debian)
+  curl -fsSL https://get.docker.com | sh
+  sudo usermod -aG docker $USER
+  newgrp docker
+
+  # Verifica
+  docker --version
+  docker compose version
+
+  Clona/copia il progetto
+
+  git clone <url-repo> /opt/rag-enterprise
+  cd /opt/rag-enterprise
+
+  oppure copia la cartella con scp o rsync dal tuo PC:
+
+  # Dal tuo PC Windows
+  scp -r "E:\MACHINELEARNING2\Prjs\python-ai-advancedRAG-CompeteSrl-v2updating" utente@IP-SERVER:/opt/rag-enterprise
+
+  Configura il .env di produzione
+
+  cp .env.example .env
+  nano .env   # o vim .env
+
+  Cambia tutti questi valori:
+
+  APP_ENVIRONMENT=production
+  APP_DEBUG=false
+
+  OPENAI_API_KEY=sk-...           # obbligatorio in prod
+
+  JWT_SECRET_KEY=<stringa random 64 chars>   # openssl rand -hex 32
+  CHAINLIT_AUTH_SECRET=<altra stringa random>
+
+  REDIS_PASSWORD=<password forte>
+  SQLSERVER_PASSWORD=<password forte>        # minimo 8 chars, maiuscole+numeri+simboli
+
+  MSSQL_PID=Standard                         # se hai licenza
+
+  QDRANT_API_KEY=<stringa random>            # obbligatorio in prod
+
+  FLOWER_USER=admin
+  FLOWER_PASSWORD=<password forte>
+
+  LANGSMITH_API_KEY=...                      # opzionale
+
+  Per generare stringhe random sicure:
+
+  openssl rand -hex 32    # 64 caratteri hex
+
+  Avvio in produzione
+
+  # Prima volta (build + start in background)
+  docker compose -f docker-compose.yml up --build -d
+
+  # Vedi i log
+  docker compose logs -f
+
+  # Solo un servizio
+  docker compose logs -f fastapi
+
+  # Status
+  docker compose ps
+
+  Avvio automatico al boot del server
+
+  sudo nano /etc/systemd/system/rag-enterprise.service
+
+  [Unit]
+  Description=RAG Enterprise Stack
+  Requires=docker.service
+  After=docker.service
+
+  [Service]
+  WorkingDirectory=/opt/rag-enterprise
+  ExecStart=/usr/bin/docker compose -f docker-compose.yml up
+  ExecStop=/usr/bin/docker compose -f docker-compose.yml down
+  Restart=on-failure
+  User=<tuo-utente>
+
+  [Install]
+  WantedBy=multi-user.target
+
+  sudo systemctl enable rag-enterprise
+  sudo systemctl start rag-enterprise
+
+  Nginx come reverse proxy (obbligatorio in prod per HTTPS)
+
+  Installa Nginx e crea /etc/nginx/sites-available/rag:
+
+  server {
+      listen 443 ssl;
+      server_name rag.tuaazienda.it;
+
+      ssl_certificate     /etc/letsencrypt/live/rag.tuaazienda.it/fullchain.pem;
+      ssl_certificate_key /etc/letsencrypt/live/rag.tuaazienda.it/privkey.pem;
+
+      # Chainlit UI
+      location / {
+          proxy_pass http://localhost:8080;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";  # WebSocket Chainlit
+          proxy_set_header Host $host;
+      }
+
+      # FastAPI API
+      location /api/ {
+          proxy_pass http://localhost:8000;
+          proxy_buffering off;             # ⚠️  obbligatorio per SSE streaming
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+      }
+  }
+
+  server {
+      listen 80;
+      server_name rag.tuaazienda.it;
+      return 301 https://$host$request_uri;   # redirect HTTP → HTTPS
+  }
+
+  Certificato SSL gratuito con Let's Encrypt:
+
+  sudo apt install certbot python3-certbot-nginx
+  sudo certbot --nginx -d rag.tuaazienda.it
+
+  ---
+  Differenza .env locale vs server
+
+  Nel .env ci sono già i commenti per questo. I valori dentro Docker usano gli hostname dei container (sqlserver, redis, qdrant),
+  non localhost. Questo funziona uguale sia sul PC locale che sul server, perché in entrambi i casi i container parlano tra loro
+  dentro la rete Docker interna. Non devi cambiare nulla su quel fronte.
+
+  ---
+  Nota importante: tabella mancante
+
+  C'è un TODO nel codice (notes.md): la tabella conversation_summaries è chiamata in conversation_repo.py e long_term.py ma non è
+  nello script init.sql. Prima di usare la memoria a lungo termine, aggiungi la tabella manualmente o allo script di init. Se non
+  ti serve subito, il sistema funziona comunque perché long_term.py è disabilitato di default.
+
+  

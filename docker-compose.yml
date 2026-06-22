@@ -1,0 +1,262 @@
+version: "3.8"  #versione sintassi Docker Compose, now (26-05-2026) 3.8 è la più comune e stabile, supporta tutte le funzionalità necessarie
+services:  #here servizi da avviare
+
+
+  fastapi:
+    build:  #build ur img custom da Dockerfile, questo è necessario per installare dipendenze e configurare ambiente esatto per FastAPI
+      context: .   #la root progetto è il contesto build
+      dockerfile: docker/fastapi.Dockerfile
+    container_name: fastapi
+    restart: unless-stopped  #🔥riavvia se crasha, ma non in caso di stop manuale, ottimo per produzione
+    ports:
+      - "8000:8000"  #mapping HOST:CONTAINER, quindi porta localhost:8000 va al container porta 8000
+    env_file: .env  #carica var env da file .env
+    environment:  #env var AGGIUNTIVE, se ci sono anche in .env QUESTE SOVRASCRIVONO quelle in .env, utili per configurazioni specifiche container
+      REDIS_URL: "redis://redis:6379/0"  #connessione redis redis://HOST:PORT/DB, redis->hostname Docker interno, 6379 porta standard Redis, 0 è il numero DB Redis (puoi usarne più di uno se vuoi)
+      SQLSERVER_HOST: "sqlserver"  #hostname container SQL Server
+      SQLSERVER_PORT: "1433"   #porta SQL Server standart
+      SQLSERVER_DB: "RAGChat"  #nome db da usare, ⚠️deve corrispondere a quello creato nello script init.sql !!
+      QDRANT_URL: "http://qdrant:6333"
+      BASE_URL_OLLAMA: "http://ollama:11434"
+    depends_on:  #partira solo dopo questi VENGONO AVVIATI, in questo esatto ordine ( 🔥cio pero non significa che sono pronti ready e operativi)
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    volumes:
+      - ./config:/app/config:ro   #monta cartella config del progetto dentro container, in sola lettura (ro), così config è centralizzata e modificabile senza rebuild container!!
+    healthcheck:  #check salute del container
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]   #chiama endpoint health, f → fail se status != 200
+      interval: 30s  #ogni 30sec
+      timeout: 10s  #max tempo risposta
+      retries: 3   #dopo 3 tentativi falliti, container è unhealthy
+      start_period: 20s   #attende 20sec prima di iniziare il check
+
+
+  celery-worker-high:  #worker Celery per coda "high" (task PRIORITARI)
+    build:
+      context: .
+      dockerfile: docker/celery.Dockerfile
+    container_name: celery-worker-high
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app.celery_app worker
+      --queues=high,shared_cleanup
+      --concurrency=4
+      --prefetch-multiplier=1
+      --loglevel=info
+      --hostname=worker-high@%h
+    #avvia worker (path target), 
+    #--queues=high,shared_cleanup   worker ascolta SOLO queste queue (molto importante architetturalmente), high -> task urgenti(chat realtime, retrieval, quick embeddings)  shared_cleanup->task manutenzione(delete cache, cleanup temp cache)
+    #--concurrency=4  4 processi worker paralleli, molto importante per throughput. 🔥 In prod aumentare in base risorse macchina e carico previsto
+    #--prefetch-multiplier=1  disabilita prefetch task, worker prende 1 task alla volta dalla coda, ottimo per task pesanti come embedding o retrieval, evita che worker prenda più task di quelli che può gestire
+    #--hostname=worker-high@%h  nome unico worker, utile per monitoraggio e debug, %h è hostname del container, così se hai più worker hai nomi diversi automaticamente
+
+    env_file: .env
+    environment: #env var AGGIUNTIVE, se ci sono anche in .env QUESTE SOVRASCRIVONO quelle in .env, utili per configurazioni specifiche container
+      REDIS_URL: "redis://redis:6379/0"
+      SQLSERVER_HOST: "sqlserver"
+      QDRANT_URL: "http://qdrant:6333"
+    depends_on:  #partira solo dopo questi VENGONO AVVIATI, in questo esatto ordine ( 🔥cio pero non significa che sono pronti ready e operativi)
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.workers.celery_app.celery_app", "inspect", "ping", "-d", "worker-high@%h"]
+      #comando per verificare se worker è vivo, usa celery inspect ping, target specifico worker-high@%h
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  #CELERY x coda DEFAULT (ingestion bulk)
+  celery-worker-default:  #Worker per task PESANTI/NON URGENTI
+    build:
+      context: .
+      dockerfile: docker/celery.Dockerfile
+    container_name: celery-worker-default
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app.celery_app worker
+      --queues=default,low
+      --concurrency=2
+      --prefetch-multiplier=1
+      --loglevel=info
+      --hostname=worker-default@%h
+    #--queues=default,low  ascolta coda default e low, per task di background meno urgenti (es. ingestion bulk, manutenzione non critica)
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      SQLSERVER_HOST: "sqlserver"
+      QDRANT_URL: "http://qdrant:6333"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  #CELERY BEAT x scheduler task periodici
+  celery-beat:   #Celery scheduler per task PERIODICI
+    build:
+      context: .
+      dockerfile: docker/celery.Dockerfile
+    container_name: celery-beat
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app.celery_app beat
+      --loglevel=info
+      --scheduler redbeat.RedBeatScheduler
+    #--scheduler redbeat.RedBeatScheduler qui entra celery-redbeat🔥, scheduler persistito su Redis (schedule persistenti, survive restart, centralizzato) MOOOLTO MEGLIO DI SCHEDULER LOCALE file-based!!
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      - redis
+
+  #FLOWER x monitoring Celery (dev/staging), si collega a Redis e mostra cosa sta succedendo nel sistema Celery tramite un'interfaccia web
+  flower:  #📊 dashboard monitoring Celery
+    image: mher/flower:2.0  #immagine ufficiale Flower, leggera e pronta all'uso, supporta autenticazione, ottima per monitorare health e performance dei worker Celery in dev e staging (in prod meglio soluzioni più robuste come Prometheus + Grafana)
+    container_name: flower
+    restart: unless-stopped
+    command: >
+      celery
+      --broker=redis://redis:6379/0
+      flower
+      --port=5555
+      --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+    #flower si connette a Redis broker, protezione dashboard
+    ports:
+      - "5555:5555"  #porta dashboard Flower
+    env_file: .env
+    depends_on:
+      - redis
+
+
+  #CHAINLIT — frontend chat UI con streaming SSE, avaible on http://localhost:8080
+  chainlit:
+    build:
+      context: .                          #root del progetto come contesto build
+      dockerfile: docker/chainlit.Dockerfile
+    container_name: chainlit
+    restart: unless-stopped
+    ports:
+      - "8080:8080"                       #UI esposta su localhost:8080
+    env_file: .env
+    environment:
+      FASTAPI_URL: "http://fastapi:8000"  #nome servizio Docker interno
+      CHAINLIT_DEFAULT_TENANT: "${CHAINLIT_DEFAULT_TENANT:-demo-corp}"
+    depends_on:
+      fastapi:
+        condition: service_healthy        #aspetta che FastAPI sia pronto
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s  #ogni 30sec
+      timeout: 10s   #max tempo risposta
+      retries: 3
+      start_period: 15s   #attende 15sec prima di iniziare il check
+
+
+  qdrant:
+    image: qdrant/qdrant:v1.4.2   #immagine ufficiale Qdrant
+    container_name: qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   #HTTP / REST
+      - "6334:6334"   #gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage  #persistenza dati Qdrant, SENZA QUESTO PERDI EMBEDDINGS AL RESTART!! così i dati restano anche se il container viene ricreato, importante per produzione!!
+    environment:  #env var AGGIUNTIVE, se ci sono anche in .env QUESTE SOVRASCRIVONO quelle in .env, utili per configurazioni specifiche container
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__LOG_LEVEL: "INFO"
+      #QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY}"   ⚠️in production abilita API key!!  
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]   #endpoint health check Qdrant, f -> fail se status != 200
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  #REDIS — broker Celery + cache + sessioni
+  redis:
+    image: redis:7.0-alpine  #immagine ufficiale Redis, versione 7.0, basata su Alpine Linux (leggera), perfetta per produzione, supporta configurazione personalizzata tramite command e env var
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data   #persistenza dati Redis, così i dati restano anche se il container viene ricreato, importante per produzione!!
+    command: >
+      redis-server
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass ${REDIS_PASSWORD}
+    #limite RAM, 
+    #--maxmemory-policy allkeys-lru   quando ram piena elimina key meno usate, ottimo x cache!!
+    #--appendonly yes   persistenza Redis AOF, Redis salva operazioni disco, più sicuro di RDB snapshot, ottimo per produzione!!
+    #--appendfsync everysec   sincronizza AOF su disco ogni secondo (Flush disco ogni secondo), bilancio tra performance e sicurezza dati, ottimo per produzione!!
+    #--requirepass ${REDIS_PASSWORD}   password redis, OBBLIGATORIA IN PRODUZIONE!!
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping"]  #comando per verificare se Redis è vivo, usa redis-cli ping con autenticazione
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  #SQL SERVER — storage relazionale multi-tenant
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest  #immagine ufficiale SQL Server 2022, sempre aggiornata, supporta configurazione tramite env var e script di inizializzazione, ottima per produzione (⚠️ricorda di configurare password forte e persistena dati!!)
+    container_name: sqlserver
+    restart: unless-stopped
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./docker/sqlserver/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/sqlserver/entrypoint.sh:/init/entrypoint.sh:ro
+    #sqlserver_data:/var/opt/mssql  persistena dati SQL Server, così i dati restano anche se il container viene ricreato, importante per produzione!!
+    #./docker/sqlserver/init.sql   SCRIPT SQL INIZIALE!!, solo read only
+    #./docker/sqlserver/entrypoint.sh   SCRIPT ENTRYPOINT custom, solo read only
+    environment:
+      SA_PASSWORD: "${SQLSERVER_PASSWORD}"  #🔥psw SqlServer, SA=System Admin. SA_PASSWORD è proprio il nome che Microsoft richiede nell'immagine
+      ACCEPT_EULA: "Y"   #accetta licenza Microsoft, accettazione EULA obbligatoria per SQL Server, senza questa variabile SQL Server non parte!!
+      MSSQL_PID: "Developer"    #Edition gratuita dev. ⚠️⚠️"Standard"/"Enterprise" in prod
+      MSSQL_COLLATION: "Latin1_General_100_CI_AS_SC_UTF8"  #configurazione encoding/case sensitivity, x UTF8 italiano unicode
+      MSSQL_MEMORY_LIMIT_MB: 2048     # cap RAM del container Sql Server
+    command: >
+      /bin/bash -c "
+      /opt/mssql/bin/sqlservr &
+      SQLSERVR_PID=$$!
+      /init/entrypoint.sh
+      wait $$SQLSERVR_PID"
+    #/opt/mssql/bin/sqlservr &   avvia SQL Server background
+    #SQLSERVR_PID=$$!  salva PID processo SQL Server in variabile
+    #/init/entrypoint.sh  esegue script di inizializzazione custom 
+    #wait $$SQLSERVR_PID  attende che processo SQL Server termini, così container rimane attivo finché SQL Server è vivo
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd",  #esegue comando DENTRO il container, /opt/mssql-tools18/bin/sqlcmd è il client CLI ufficiale Microsoft SQL Server
+             "-S", "localhost",  #-S = server, poi vuole sapere a quale server deve connettersi, quindi gli dici connnettiti a localhost
+             "-U", "SA",  #-U = user, poi vuole sapere a quale utente SQL deve connettersi, dice connettiti come utente SA(System Administrator)
+             "-P", "${SQLSERVER_PASSWORD}",  #-P = password (presa da file .env), poi vuole sapere la psw, gli dai la psw
+             "-Q", "SELECT 1"]  #-Q = query, esegue query di test "SELECT 1", se risponde è vivo, se fallisce è unhealthy
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+# VOLUMES
+volumes:  #docker named values, qui definiamo i volumi usati dai container per la persistena dati, così i dati restano ANCHE SE I CONTAINER VENGONO DISTRUTTI/RICREATI, fondamentale per produzione!!
+  qdrant_data:
+    driver: local
+  redis_data:
+    driver: local
+  sqlserver_data:
+    driver: local
+#i volumes sono area persistente ESTERNA AL CONTAINER, su linux solitamente in /var/lib/docker/volumes/, su Windows Docker Desktop solitamente C:\Users\Username\AppData\Local\docker\volumes. LI GESTISCE DOCKER
+

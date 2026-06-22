@@ -1,0 +1,118 @@
+#questo file docker-compose.override.yml VIENE SEMPRE CARICATO quando fai 'docker-compose up', e QUESTI SETTINGS OVERRIDE QUELLI DI BASE se matchano
+
+version: "3.8"
+# =============================================================
+# Override per sviluppo locale
+# Docker Compose carica questo file AUTOMATICAMENTE insieme
+# a docker-compose.yml quando fai: docker-compose up
+# Le chiavi qui SOVRASCRIVONO o ESTENDONO quelle del file base
+# In produzione NON viene usato (si usa: docker-compose -f docker-compose.yml up), mentre in sviluppo si fa anche solo 'docker-compose up'
+# =============================================================
+ 
+services:
+ 
+  fastapi:
+    #hot reload: uvicorn rileva modifiche ai .py e si riavvia automaticamente
+    #in produzione NON vuoi questo, rallenta e consuma più CPU
+    command: >
+      uvicorn main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/app
+      --reload-dir /app/config
+      --log-level debug
+    environment:
+      #sovrascrive environment del docker-compose.yml base
+      APP_ENVIRONMENT: "development"
+      APP_DEBUG: "true"
+      LOG_LEVEL: "DEBUG"
+    volumes:
+      #monta codice sorgente LIVE nel container
+      #ogni modifica al codice è visibile SUBITO senza rebuild
+      - ./app:/app/app          #codice Python
+      - ./config:/app/config    #yaml config
+      - ./main.py:/app/main.py  #entry point
+    #in dev apriamo anche porta debug se usi debugger remoto (es. VS Code attach)
+    ports:
+      - "8000:8000"
+      - "5678:5678"   # debugpy — VS Code remote debugger (opzionale)
+ 
+  celery-worker-high:
+    #in dev: meno concurrency, log più verbosi
+    command: >
+      celery -A app.workers.celery_app.celery_app worker
+      --queues=high,shared_cleanup
+      --concurrency=1
+      --prefetch-multiplier=1
+      --loglevel=debug
+      --hostname=worker-high@%h
+    environment:
+      APP_ENVIRONMENT: "development"
+      LOG_LEVEL: "DEBUG"
+    volumes:
+      - ./app:/app/app
+      - ./config:/app/config
+ 
+  celery-worker-default:
+    command: >
+      celery -A app.workers.celery_app.celery_app worker
+      --queues=default,low
+      --concurrency=1
+      --prefetch-multiplier=1
+      --loglevel=debug
+      --hostname=worker-default@%h
+    environment:
+      APP_ENVIRONMENT: "development"
+      LOG_LEVEL: "DEBUG"
+    volumes:
+      - ./app:/app/app
+      - ./config:/app/config
+ 
+  celery-beat:
+    environment:
+      APP_ENVIRONMENT: "development"
+    volumes:
+      - ./app:/app/app
+      - ./config:/app/config
+ 
+  qdrant:
+    #in dev: esponi anche la porta gRPC per tool esterni (es. Qdrant Web UI)
+    #e abbassa log level per non sporcare il terminale
+    environment:
+      QDRANT__LOG_LEVEL: "WARN"   # meno rumore in dev
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+ 
+  redis:
+    #in dev: niente password per semplicità
+    #sovrascrive il command del file base che usa --requirepass
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly no
+      --loglevel warning
+    #⚠️⚠️ATTENZIONE: rimuoviamo --requirepass in dev
+    #quindi REDIS_URL nei servizi deve essere senza password:
+    #redis://redis:6379/0  (non redis://:password@redis:6379/0)
+    environment:
+      REDIS_PASSWORD: ""
+ 
+  chainlit:
+    #Hot-reload in dev: -w fa sì che Chainlit rilevi le modifiche a app.py
+    command: chainlit run app.py --host 0.0.0.0 --port 8080 -w
+    environment:
+      FASTAPI_URL: "http://fastapi:8000"
+      CHAINLIT_DEFAULT_TENANT: "demo-corp"
+    volumes:
+      #Monta sorgenti live per hot-reload senza rebuild immagine
+      - ./chainlit_app/app.py:/app/app.py
+      - ./chainlit_app/.chainlit:/app/.chainlit
+
+  sqlserver:
+    environment:
+      # In dev usa meno RAM
+      MSSQL_MEMORY_LIMIT_MB: 1024
+

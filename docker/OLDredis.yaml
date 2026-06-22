@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  redis:  #nome del servizio Redis
+    image: redis:7.0-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped  #riavviato sempre automaticamente, a meno che non lo fermi tu intenzionalmente
+    volumes:
+      - redis_data:/data   #monta volume called 'redis_data' in path /data del container, dove Redis salva i dati (persistence)
+
+volumes:
+  redis_data:

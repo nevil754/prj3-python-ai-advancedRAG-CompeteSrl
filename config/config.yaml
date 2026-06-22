@@ -1,0 +1,106 @@
+app:
+  name: "Compet-e Srl RAG Enterprise Legal"
+  version: "0.1.0"  #0.x → prototipo/dev, 1.x → beta, 2.x → prod
+  debug: false  #se true allora log piu verbosi e stacktrace completi, in production sempre False!
+  environment: "development"  #ambiente runtime. development | staging | production dal code puoi leggere here per settare behaviors diversi e.g.CORS
+  description: "competeSrl RAG system enterprise legal: con retrieval ibrido reranking memoria conversazionale"
+
+ingestion:
+  parser:  #parser: docling per PDF/DOCX complessi, unstructured come fallback
+    prefer_docling: true   #docling è più preciso su contratti/bilanci, quindi usa prima docling e fallback su Unstructured
+    extract_tables: true   #estrae tabelle come testo strutturato
+    extract_images: false  #false, se true allora OCR/VLM/image understanding ma molto costoso computazionalmente
+    languages: ["it", "en"]
+  splitter:  #how CHUNKING documenti
+    chunk_size: 1000
+    chunk_overlap: 200  #overlap tra chunk consecutivi, per evitare perdita contesto
+    strategy: "markdown"
+  loader:
+    extensions: [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".md"]
+    max_file_size_mb: 100
+
+embeddings:
+  provider: "fastembed" #"ollama"
+  model: "BAAI/BGE-M3" #"nomic-embed-text:latest"  #magari posso anche usare qua un modello di gemini(google)
+  base_url: "" #ollama "http://localhost:11434"
+  batch_size: 64   #numero documenti elaborati insieme, piu è alto piu è veloce ma piu ram
+  cache_dir: "/app/.cache/embeddings"  #🔥🔥dir cache modelli, evita re-download ad ogni restart
+
+llm:
+  provider: "ollama"   #"openai" #"google"   
+  model: "llama3.1"   #"tinyllama:latest" #"gpt-4.1-mini" #"gemini-2.0-flash"
+  #api_key: "${GOOGLE_API_KEY}"  #ora gestito da 'settings.py'
+  num_ctx: 2048     #🔥finestra contesto massima, piu è alto più memoria conversazionale ma piu ram
+  api_key: "${OLLAMA_API_KEY}"
+  base_url: "http://ollama:11434"
+  temperature: 0.0    #'creatività'del modello, 0=deterministico 1=massima creatività
+  max_tokens: 2048    #massima lunghezza output
+  timeout: 120    #timeout in secondi per chiamate al modello, per evitare attese infinite
+  streaming: true    #invia token realtime, io uso SSE
+
+retriever:
+  search_type: "hybrid"
+  retrieval_strategy: "mmr"
+  top_k: 20           #numero documenti recuperati, piu è alto più contesto ma piu rumore
+  mmr_lambda: 0.5     #bilanciamento mmr, 0.5 è ok. 0 -> massima diversità 1 -> massima similarità.
+  auto_filter: false  #now disattivo filtro automatico metadata
+
+reranker:
+ enabled: true   #attiva reranking
+ model: "BAAI/bge-reranker-base"
+ top_k: 5   #numero documenti finali che passano al llm dopo il reranking
+ initial_k: 20   #numero documenti iniziali recuperati
+
+metadata:
+  config_file: "/app/config/metadata.yaml"
+
+vectorstore:
+  url: "" "http://qdrant:6333"   #porta
+  api_key: "${QDRANT_API_KEY}"    #chiave auth, anche ok vuoto in dev, ma ovviamente 🔥obbligatorio in prod
+  collection_name: "collection-competeSrl-RAGv2"
+  use_sparse: true
+  force_recreate: false    #se true allora cancella e ricrea la collection ad ogni avvio, ok sviluppo per evitare dati obsoleti ma in produzione deve essere false
+  distance: "Cosine"    #Cosine | Dot | Euclid
+  on_disk_payload: true     #metadata su disco anziché RAM, molto utile grandi dataset!
+
+memory:    #memoria conversazionale
+  short_term_turns: 10        #ultimi N messaggi mantenuti in Redis
+  long_term_enabled: false    #memory persistente conversazioni. summary in SQL — attivare in v2 (nella seconda versione, prima deve funzionare tutto in v1)
+  session_ttl_hours: 24      #scadenza sessione
+  #fact_extraction_enabled: true  # ← attiva estrazione fatti   x temporal-memory imitando Zep plugin, lo farai in v2
+  #semantic_memory_enabled: true  # ← attiva ricerca semantica  x temporal-memory (anche di anni) imitando Zep plugin, lo farai in v2
+  #facts_collection: "memory"     # nome collection Qdrant per i ricordi  x temporal-memory (anche di anni) imitando Zep plugin, lo farai in v2
+
+cache:
+  query_ttl_seconds: 3600         #cache query rag, 1h — risposta RAG per la stessa query
+  session_ttl_seconds: 86400      #cache sessione, 24h — storia chat
+
+web_search:    #web retrieval esterno
+  enabled: false
+  provider: "tavily"    #uso plugin tavily | ddgs. REMEMBER tavily gratuito fino a 1k/search al month! NON VA BENE x production
+  api_key: "${TAVILY_API_KEY}"
+  max_results: 5     #numero risultati search
+
+  
+
+logging: 
+  level: "INFO"     #DEBUG | INFO | WARNING | ERROR
+  console_output: true    #output log su console
+  colored: true
+  json_output: false    #🔥FORMATO JSON, da fare perche cosi è leggibile anche da sistemi e.g.ELK/Grafana/Datadog
+
+observability:
+  langsmith_enabled: false       #true in staging/prod, cosi vedi info nella dashboard LangSmith
+  langsmith_project: "compet-eSrl-RAGenterprise-legal"
+  opentelemetry_enabled: false   #telemetry distribuita, usa plugin opentelemetry per tracciare richieste e performance
+
+rate_limit:    #🔥SEMPRE DA FARE protezione abuso e ti protegge anche dai costi alti computazionali eseguiti dai clienti
+  requests_per_minute: 60
+  tokens_per_day: 100000
+
+security:
+  jwt_algorithm: "HS256"    #algh firma, hs256 va bene per chiavi simmetriche, se usi chiavi asimmetriche allora RS256
+  jwt_expire_minutes: 60
+  api_key_length: 32     #lunghezza API key generate
+  password_min_length: 12  
+
