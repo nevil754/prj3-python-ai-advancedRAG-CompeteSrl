@@ -109,7 +109,7 @@ class TenantRedis:
         from app.core.settings import get_settings
         settings = get_settings()
         key = self._key("cache", "query", query_hash)  #costruisce chiave e.g. tenant:abc123:cache:query:hash123
-        await self._cache.setex(key,  ttl or settings.cache_query_ttl_seconds,  response)  #setta la risposta RAG in cache con ttl
+        await self._cache.setex(key,  ttl or settings.cache_query_ttl_seconds,  response)  #setta la risposta RAG in cache con ttl!
         #setex = set + expire insieme
 
     async def invalidate_query_cache(self) -> int:

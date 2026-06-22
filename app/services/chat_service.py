@@ -67,7 +67,7 @@ class ChatService:
         cached = await self.redis.get_query_cache(query_hash)  #cerchi risposta gia cachata 
         if cached:
             logger.debug("Cache hit per query RAG")
-            return json.loads(cached)
+            return json.loads(cached)   #ovviamente se il result di questa target query è ancora valida in cache, allora usa quella e risparmi energia computazionale
         session_messages = await self.redis.get_session(conv_id)  #🔥carichi session target (short-term memory)
         chunks = await retrieve(  #retrieval (async — non blocca l'event loop)
             query=question,
@@ -75,7 +75,7 @@ class ChatService:
             tenant_id=self.tenant_id,
             collection_id=collection_id,
         )
-        result = await arun_rag_chain(   #runni versione normale
+        result = await arun_rag_chain(   #runni versione normale (no stream SSE)
             question=question,
             chunks=chunks,
             session_messages=session_messages,
@@ -89,12 +89,13 @@ class ChatService:
             tokens_out=result.get("tokens_out", 0),
             latency_ms=result.get("latency_ms", 0),
         )
-        await self.redis.append_message(conv_id, {
+        await self.redis.append_message( conv_id, {
             "role": "user", "content": question
-        }, settings.memory_short_term_turns)  #alla sessione target di redis aggiungi nella cache {conversationid , {user, content}, limite turni(per mantenere solo gli ultimi N turni) }
+        }, settings.memory_short_term_turns)  #alla sessione target di redis aggiungi nella cache {conversationid , {user, content}, limite turni(per mantenere solo gli ultimi N turni) }.
+        #AGGIUNGI IL MEX ALLA CRONOLOGIA DELLA CONVERSAZIONE(sessione) gestita da redis; pero se vuoi sapere se una query è gia stata fatta dovresti leggere tutta la cronologia->cercare la domanda->verificare che sia identica 🥵🥵🥵, quindi in quel caso meglio salvare obj in cache sotto una key target!(lo fai here qua sotto w set_query_cache()!!)
         await self.redis.append_message(conv_id, {
             "role": "assistant", "content": result["answer"]
-        }, settings.memory_short_term_turns)   #fai la stessa cosa per role 'assistant'
+        }, settings.memory_short_term_turns)   #fai la stessa cosa per role 'assistant'🔥!! cosi hai chat multi-turno!
         #in questo modo su redis in target session, salvi sia la domanda dell'user che la risposta!
         response = {  #build obj 
             "answer": result["answer"],
@@ -105,7 +106,7 @@ class ChatService:
             "tokens_out": result.get("tokens_out"),
             "latency_ms": result.get("latency_ms"),
         }
-        await self.redis.set_query_cache( query_hash, json.dumps(response) )   #salvi la risposta, json.dumps() converts python obj in corrisponding json formatted string
+        await self.redis.set_query_cache( query_hash, json.dumps(response) )   #salvi la risposta su cache, json.dumps() converts python obj in corrisponding json formatted string. CON QUESTO SALVI EFFETTIVAMENTE IN CACHE UN OBJ sotto una key target.
         await self._increment_usage_stats(
             tokens_in=result.get("tokens_in", 0),
             tokens_out=result.get("tokens_out", 0),

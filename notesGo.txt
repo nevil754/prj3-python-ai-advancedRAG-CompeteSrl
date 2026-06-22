@@ -125,6 +125,18 @@ Redis supporta fino a 16 databases logici (all'interno sempre della stessa istan
 -quando celery finisce un task, scrive risulato in Redis con chiave celery-task-meta-{task_id} (i risultati hanno TTL tempo di vita di 24h poi vengono cancellate da redis). fastapi puo sempre interrogare AsyncResult(task_id) e cosi sapere se la task è Pending | Started | Success | Failure. 
 -utillizzo di Redis per cachare risposte rag (e.g.cache:{tid}:query:{hash}) / sessioni chat degli ultimi N turni (session:{tid}:{user}) / rate limiting per tenant 
 
+await self.redis.append_message( conv_id, { "role": "user", "content": question }, settings.memory_short_term_turns);  //AGGIUNGI IL MEX ALLA CRONOLOGIA DELLA CONVERSAZIONE(sessione) gestita da redis; pero se vuoi sapere se una query è gia stata fatta dovresti leggere tutta la cronologia->cercare la domanda->verificare che sia identica 🥵🥵🥵, quindi in quel caso meglio salvare obj in cache sotto una key target!(lo fai here qua sotto w set_query_cache()!!)
+response = {  #build obj 
+            "answer": result["answer"],
+            "conversation_id": conv_id,
+            "message_id": message_id,
+            "sources": result["sources"],   #citazioni
+            "tokens_in": result.get("tokens_in"),
+            "tokens_out": result.get("tokens_out"),
+            "latency_ms": result.get("latency_ms"),
+        }
+await self.redis.set_query_cache( query_hash, json.dumps(response) ) 
+
 CELERY
 per eseguire jobs in background, si attiva automaticamente e.g.caricamente di pdf di 200pagine 🤯
 -con acks_late=True Celery fa l'ACK a Redis solo DOPO che il task è completato con successo, in questo modo se un worker che sta elaborando il task crasha allora il task rimane in coda e un'altro worker lo prende in carico quindi segnalazione finale a Redis solo dopo che il task è stato completato con successfully!!
