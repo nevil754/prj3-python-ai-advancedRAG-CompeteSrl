@@ -25,7 +25,7 @@ def get_embedding_model() -> Any:
         cache_dir=settings.embeddings_cache_dir,
     )  #log strutturato, x essere letto chiarmanet da opentelemetry/ELK/ect
     model = TextEmbedding(   #creazione model
-        model_name=settings.embeddings_model,  #ovviamnete scarica il model da HuggingFace e lo mette in cache_dir="./models" o lo prende da li se era gia scaricato
+        model_name=settings.embeddings_model,  #ovviamente scarica il model da HuggingFace e lo mette in cache_dir="./models" o lo prende da li se era gia scaricato
         cache_dir=settings.embeddings_cache_dir,
         max_length=512,   #max token per chunk — BAAI/BGE-M3 supporta 8192 ma 512 è perfect!
         threads=4,        #4 thread per batch processing
@@ -33,7 +33,7 @@ def get_embedding_model() -> Any:
     logger.info("Modello embedding caricato", model=settings.embeddings_model)  #log strutturato
     return model
 
-def embed_texts(texts: list[str]) -> list[list[float]]:
+def embed_texts( texts: list[str] ) -> list[list[float]]:
     """
     Genera embedding per una lista di testi.
     Usato durante l'ingestion per vettorizzare i chunk.
@@ -78,7 +78,7 @@ async def aembed_texts(texts: list[str]) -> list[list[float]]:  #async
     fastembed è sincrono, eseguiamo in un thread pool per non bloccare l'event loop.
     """
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, embed_texts, texts)
+    return await loop.run_in_executor(None, embed_texts, texts)   #None è il default executor, che è un ThreadPoolExecutor. Quindi esegue embed_texts in un thread separato, evitando di bloccare l'event loop principale.
 
 async def aembed_query(text: str) -> list[float]:  #async
     """Versione async di embed_query."""
@@ -108,7 +108,7 @@ def get_reranker_model() -> Any:
     settings = get_settings()
     if not settings.reranker_enabled:
         return None
-    from sentence_transformers import CrossEncoder  #🔥CrossEncoder è il wrapper
+    from sentence_transformers import CrossEncoder    #🔥CrossEncoder è il wrapper
     logger.info("Caricamento reranker", model=settings.reranker_model)  #log strutturato
     reranker = CrossEncoder(
         settings.reranker_model,

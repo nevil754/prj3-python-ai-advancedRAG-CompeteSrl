@@ -113,7 +113,7 @@ def _intercept_stdlib_logging() -> None:
             try:
                 level = logger.level(record.levelname).name   #converte logging.INFO -> Loguru INFO
             except ValueError:
-                level = record.levelno     #type: ignore
+                level = record.levelno           #type: ignore
             frame, depth = sys._getframe(6), 6   #serve a trovare il vero caller del log, è molto avanzato.
             while frame and frame.f_code.co_filename == logging.__file__:   #salta frame interni di logging fino a trovare il vero caller
                 frame = frame.f_back     #type: ignore

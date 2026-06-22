@@ -152,14 +152,14 @@ class AppSettings(BaseSettings):
     @classmethod  #dice a python che questa funzione appartiene alla classe e NON all'istanza. per validator pydantic è lo standart
     def validate_jwt_secret(cls, v: str) -> str:   #cls è la classe corrente, v è il valore del campo jwt_secret_key
         if v == "change-me-in-production-min-32-chars":   #chiave fake di development 
-            return v  #ok in dev
+            return v     #ok in dev
         if len(v) < 32:
             raise ValueError("JWT_SECRET_KEY deve essere almeno 32 caratteri")
         return v
 
-    @field_validator("log_level")   #custom validator, check il filed log_level
+    @field_validator("log_level")     #custom validator, check il field log_level
     @classmethod
-    def validate_log_level(cls, v: str) -> str:   #cls è la classe corrente, v è il valore del campo log_level
+    def validate_log_level(cls, v: str) -> str:    #cls è la classe corrente, v è il valore del campo log_level
         allowed = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         v = v.upper()
         if v not in allowed:
@@ -185,7 +185,7 @@ def _apply_yaml_overrides() -> None:
         ("embeddings.batch_size",   "EMBEDDINGS_BATCH_SIZE"),
         ("embeddings.cache_dir",    "EMBEDDINGS_CACHE_DIR"),
         ("vectorstore.url",         "QDRANT_URL"),    #🔥🔥ora QDRANT_URL è la variabile d'ambiente che userai nel codice per connetterti a Qdrant, 
-        #⚠️ QUINDI SE CAMBI IL NOMES NEL FILE CONFIG.YAML, RICORDATI DI CAMBIARLO ANCHE QUI!! ALTRIMENTI non link nell'app!! 
+        #⚠️ QUINDI SE CAMBI IL NOME NEL FILE CONFIG.YAML, RICORDATI DI CAMBIARLO ANCHE QUI!! ALTRIMENTI non link nell'app!! 
         #"QDRANT_URL" è il tuo "qdrant_url" here qua sopra in AppSettings, mentre "vectorstore.url" è il path in config.yaml
         ("vectorstore.collection_name", "QDRANT_COLLECTION_NAME"),
         ("vectorstore.use_sparse",  "QDRANT_USE_SPARSE"),
