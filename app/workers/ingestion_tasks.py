@@ -74,7 +74,7 @@ def ingest_document(
         )
     try:
         start = time.time()   #start timer 
-        # 2-6. Pipeline completa: parse → chunk → embed → upsert Qdrant
+        # 2-6. Pipeline completa: parse -> chunk -> embed -> upsert Qdrant
         result = run_ingestion_pipeline(
             tenant_id=tenant_id,
             tenant_slug=tenant_slug,
@@ -82,7 +82,7 @@ def ingest_document(
             file_path=file_path,
             collection_id=collection_id,
         )
-        elapsed_ms = round((time.time() - start) * 1000)  #calcolo tempo trascorso in ms
+        elapsed_ms = round((time.time() - start) * 1000)    #calcolo tempo trascorso in ms
         log.info(
             "Pipeline completata",
             chunks=result["chunk_count"],
