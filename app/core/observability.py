@@ -81,7 +81,7 @@ def setup_langsmith(settings: "AppSettings") -> None:
 def setup_opentelemetry(settings: "AppSettings") -> None:
     """
     Configura OpenTelemetry per tracing distribuito.
-    Attivo solo se opentelemetry_enabled=true in config
+    Attivo solo se opentelemetry_enabled=true in config!
     """
     if not settings.opentelemetry_enabled:
         logger.debug("OpenTelemetry disabilitato")
@@ -97,7 +97,7 @@ def setup_opentelemetry(settings: "AppSettings") -> None:
             "deployment.environment": settings.app_environment,
         })
         provider = TracerProvider(resource=resource)  #crea tracer principale
-        trace.set_tracer_provider(provider)   #registra tracer globale
+        trace.set_tracer_provider(provider)           #registra tracer globale
         logger.info("OpenTelemetry configurato", service=settings.app_name)
     except ImportError:
         logger.warning("opentelemetry-sdk non installato — skip")

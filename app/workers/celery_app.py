@@ -55,11 +55,10 @@ def create_celery_app() -> Celery:  #this is a factory function, non è singleto
         task_default_retry_delay=60,   #60s prima di riprovare
         timezone="UTC",
         enable_utc=True,  #🔥 forza utc ovunque, evita problemi italia england ect
-        #🔥Redbeat scheduler (task periodici persistiti su Redis), see more in notesGo.txt !
+        #🔥⚡️Redbeat scheduler (task periodici persistiti su Redis), see more in notesGo.txt !
         redbeat_redis_url=settings.redis_url,  #redbeat, see more in notesGo.txt
         redbeat_key_prefix="redbeat:",   #le keys di redis diventano e.g. "redbeat:app.workers.scheduled_tasks.rollup_usage"
     )
-
     return app
 
 celery_app = create_celery_app()    #istanza globale, importata dai moduli worker

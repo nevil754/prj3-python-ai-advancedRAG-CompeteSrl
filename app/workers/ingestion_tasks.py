@@ -14,8 +14,8 @@ from app.workers.celery_app import celery_app
 
 
 @celery_app.task(
-    bind=True,          #permette accesso a self (il classico self per l'istanza stessa)
-    max_retries=3,      #massimo 3 tentativi
+    bind=True,                #permette accesso a self (il classico self per l'istanza stessa)
+    max_retries=3,            #massimo 3 tentativi
     default_retry_delay=60,   #60secs tra i retries
     acks_late=True,   #🔥il task viene confermato successfully solo DOPO il completamento 
     reject_on_worker_lost=True,   #se worker crasha il task torna in coda!
@@ -51,7 +51,7 @@ def ingest_document(
     from app.core.redis_client import TenantRedis
     from app.rag.ingestion.pipeline import run_ingestion_pipeline  #ur custom
     task_id = self.request.id   #con celery il self.request contiene metadata della chiamata del task
-    log = logger.bind(  #.bind permette di aggiungere campi personalizzati al logger, che saranno inclusi in tutti i log successivi fatti con questo logger
+    log = logger.bind(  #.bind permette di aggiungere campi personalizzati al Logger, che saranno inclusi in tutti i log successivi fatti con questo logger
         task_id=task_id,
         tenant=tenant_slug,
         document_id=document_id,
@@ -67,7 +67,7 @@ def ingest_document(
                 WHERE document_id = :doc_id
             """),
             {"task_id": task_id, "doc_id": document_id}
-        )
+        )   #in tab ingestion_jobs filtra x document_id, e modifica cols celery_task_id, started_at, status
         session.execute(
             text("UPDATE documents SET status = 'processing' WHERE id = :id"),
             {"id": document_id}

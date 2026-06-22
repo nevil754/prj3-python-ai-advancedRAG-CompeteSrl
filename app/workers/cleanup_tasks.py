@@ -13,7 +13,7 @@ from app.workers.celery_app import celery_app  #ur custom
     name="app.workers.cleanup_tasks.purge_tenant",   #the name
     acks_late=True,  #🔥🔥il task viene confermato successfully solo DOPO il completamento 
 )
-def purge_tenant(tenant_id: str, tenant_slug: str) -> dict:  #DELETE COMPLETO e irreversibile X L'UTENTE, cancella sql schema - qdrant collections - redis keys
+def purge_tenant(tenant_id: str, tenant_slug: str) -> dict:  #funct fa DELETE COMPLETO e irreversibile X L'UTENTE, cancella sql schema - qdrant collections - redis keys
     """
     Offboarding completo di un tenant.
     Cancella: schema SQL Server, collection Qdrant, chiavi Redis.
@@ -37,8 +37,8 @@ def purge_tenant(tenant_id: str, tenant_slug: str) -> dict:  #DELETE COMPLETO e 
         session.execute(
             text("UPDATE shared.tenants SET is_active = 0 WHERE slug = :slug"),
             {"slug": tenant_slug}
-        )   #disabilita tenant prima di cancellare
-        session.execute(text(f"DROP SCHEMA IF EXISTS [{schema_name}]"))  #⚠️⚠️ DROP SCHEMA è irreversibile, IN VERA PRODUCTION magari è consigliato solo disabilitare!!
+        )   #disabilita tenant prima di cancellarlo!
+        session.execute(text(f"DROP SCHEMA IF EXISTS [{schema_name}]"))  #⚠️⚠️ DROP SCHEMA è irreversibile, IN VERA PRODUCTION magari è consigliato solo disabilitare!
         session.commit()   #senza commit le modifiche vengono rollbacked al close()
             #lo schema deve essere completamente vuoto!! altrimenti potresti avere errori t-sql tipo  'Cannot drop schema 'X' because it is being referenced by object 'Y''
     logger.info(
@@ -46,7 +46,8 @@ def purge_tenant(tenant_id: str, tenant_slug: str) -> dict:  #DELETE COMPLETO e 
         tenant=tenant_slug,
         redis_keys_deleted=deleted_keys,
     )   #x logging strutturato
-    return {"status": "purged", "tenant": tenant_slug}  #return dict
+    return {"status": "purged", "tenant": tenant_slug}   #return dict
+
 
 @celery_app.task(
     name="app.workers.cleanup_tasks.expire_sessions",   #the name
@@ -55,7 +56,7 @@ def purge_tenant(tenant_id: str, tenant_slug: str) -> dict:  #DELETE COMPLETO e 
 def expire_sessions() -> dict:
     """
     Pulizia sessioni Redis scadute.
-    Eseguito periodicamente da celery-beat.
+    Eseguito periodicamente da celery-beat!
     Redis gestisce i TTL automaticamente, ma questo task
     fa pulizia esplicita per chiavi senza TTL o orfane.
     """
@@ -66,7 +67,7 @@ def expire_sessions() -> dict:
         client = get_redis()
         #cerca chiavi sessione senza TTL(time-to-live) cioe anomalie
         cursor = 0   #paginazione redis scan
-        fixed = 0  #contatore modifiche
+        fixed = 0    #contatore modifiche
         while True:
             cursor, keys = await client.scan( cursor=cursor, match="tenant:*:session:*", count=200 )  #cerca chiavi redis con pattern session tenant, e prende a batchs di 200
             for key in keys:
